@@ -7,7 +7,8 @@ export interface JwtPayload {
   sub: number;
   email: string;
   role: string;
-  tenantId?: number;
+  tenantId: number;
+  type: 'access' | 'refresh';
 }
 
 @Injectable()
@@ -25,9 +26,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
-    if (!payload.sub) {
-      throw new UnauthorizedException();
+    if (!payload.sub || payload.type !== 'access') {
+      throw new UnauthorizedException('Invalid token');
     }
+
     return {
       userId: payload.sub,
       email: payload.email,

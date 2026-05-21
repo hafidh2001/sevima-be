@@ -5,6 +5,7 @@ import {
   HealthCheckResult,
 } from '@nestjs/terminus';
 import { DatabaseHealthIndicator } from './database.health';
+import { Public } from '../../common/decorators/public.decorator';
 
 @Controller('health')
 export class HealthController {
@@ -14,6 +15,7 @@ export class HealthController {
   ) {}
 
   @Get()
+  @Public()
   @HealthCheck()
   check(): Promise<HealthCheckResult> {
     return this.health.check([() => this.databaseHealth.isHealthy('database')]);

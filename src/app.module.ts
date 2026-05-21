@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { UsersModule } from './modules/users/users.module';
 import { WorkflowsModule } from './modules/workflows/workflows.module';
 import { DatabaseModule } from './database/database.module';
+import { RolesGuard } from './common/guards/roles.guard';
+import { TenantIsolationGuard } from './common/guards/tenant-isolation.guard';
 
 @Module({
   imports: [
@@ -26,6 +29,16 @@ import { DatabaseModule } from './database/database.module';
     TenantsModule,
     UsersModule,
     WorkflowsModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: TenantIsolationGuard,
+    },
   ],
 })
 export class AppModule {}
