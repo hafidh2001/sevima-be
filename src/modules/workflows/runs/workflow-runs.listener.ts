@@ -1,0 +1,95 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { PrismaService } from '../../../database/prisma.service';
+import { DAGExecutor } from '../dag/dag-executor';
+import { ExecutionContext } from '../dag/dag.types';
+import { RunStatus, StepStatus } from '@prisma/client';
+
+interface WorkflowRunEvent {
+  runId: number;
+  workflowId: number;
+  definition: any;
+  variables: Record<string, any>;
+  userId: number;
+  tenantId: number;
+}
+
+@Injectable()
+export class WorkflowRunsListener {
+  private readonly logger = new Logger(WorkflowRunsListener.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly dagExecutor: DAGExecutor,
+  ) {}
+
+  @OnEvent('workflow.run')
+  async handleWorkflowRun(event: WorkflowRunEvent) {
+    const { runId, definition, variables, userId, tenantId } = event;
+
+    this.logger.log(`Starting workflow execution for run ${runId}`);
+
+    try {
+      // Update status to RUNNING
+      await this.prisma.workflowRun.update({
+        where: { id: runId },
+        data: { status: RunStatus.RUNNING },
+      });
+
+      // Create step run records
+      for (const node of definition.nodes) {
+        await this.prisma.stepRun.create({
+          data: {
+            workflowRunId: runId,
+            stepId: node.id,
+            stepName: node.name,
+            stepType: node.type.toUpperCase() as any,
+            status: StepStatus.PENDING,
+            retryCount: 0,
+            maxRetries: node.retryConfig?.maxRetries || 3,
+          },
+        });
+      }
+
+      // Execute the workflow
+      const context: ExecutionContext = {
+        workflowRunId: runId,
+        tenantId,
+        userId,
+        variables,
+        results: new Map(),
+        startTime: new Date(),
+      };
+
+      await this.dagExecutor.execute(runId, definition, context);
+
+      // Check if all steps succeeded
+      const stepRuns = await this.prisma.stepRun.findMany({
+        where: { workflowRunId: runId },
+      });
+
+      const allSuccess = stepRuns.every((step) => step.status === StepStatus.SUCCESS);
+      const anyFailed = stepRuns.some((step) => step.status === StepStatus.FAILED);
+
+      await this.prisma.workflowRun.update({
+        where: { id: runId },
+        data: {
+          status: allSuccess ? RunStatus.SUCCESS : anyFailed ? RunStatus.FAILED : RunStatus.RUNNING,
+          completedAt: new Date(),
+        },
+      });
+
+      this.logger.log(`Workflow run ${runId} completed with status: ${allSuccess ? 'SUCCESS' : 'FAILED'}`);
+    } catch (error) {
+      this.logger.error(`Workflow run ${runId} failed: ${error}`);
+
+      await this.prisma.workflowRun.update({
+        where: { id: runId },
+        data: {
+          status: RunStatus.FAILED,
+          completedAt: new Date(),
+        },
+      });
+    }
+  }
+}
