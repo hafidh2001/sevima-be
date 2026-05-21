@@ -1,4 +1,4 @@
-import { IsOptional, IsInt, Min, Max, IsBoolean } from 'class-validator';
+import { IsOptional, IsInt, Min, Max, IsBoolean, IsString, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -31,4 +31,19 @@ export class QueryWorkflowDto {
   @Type(() => Boolean)
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ example: 'workflow-name' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ example: '2024-01-01' })
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @ApiPropertyOptional({ example: '2024-12-31' })
+  @IsOptional()
+  @IsDateString()
+  to?: string;
 }

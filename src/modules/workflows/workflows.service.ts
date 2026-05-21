@@ -37,12 +37,38 @@ export class WorkflowsService {
   }
 
   async findAll(tenantId: number, query: QueryWorkflowDto) {
-    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', isActive } = query;
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      isActive,
+      name,
+      from,
+      to,
+    } = query;
 
-    const where = {
+    const where: any = {
       tenantId,
-      ...(isActive !== undefined && { isActive }),
     };
+
+    if (isActive !== undefined) {
+      where.isActive = isActive;
+    }
+
+    if (name) {
+      where.name = { contains: name, mode: 'insensitive' };
+    }
+
+    if (from || to) {
+      where.createdAt = {};
+      if (from) {
+        where.createdAt.gte = new Date(from);
+      }
+      if (to) {
+        where.createdAt.lte = new Date(to);
+      }
+    }
 
     const skip = (page - 1) * limit;
 
@@ -68,6 +94,9 @@ export class WorkflowsService {
       this.prisma.workflowDefinition.count({ where }),
     ]);
 
+    const totalPages = Math.ceil(total / limit);
+    const nextCursor = page < totalPages ? String(page + 1) : undefined;
+
     return {
       data: workflows.map((w) => ({
         ...w,
@@ -75,10 +104,11 @@ export class WorkflowsService {
         versionCount: w.versions.length,
       })),
       meta: {
-        page,
-        limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        page,
+        perPage: limit,
+        totalPages,
+        nextCursor,
       },
     };
   }

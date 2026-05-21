@@ -166,13 +166,26 @@ export class WorkflowRunsService {
   }
 
   async findAll(tenantId: number, workflowId: number, query: QueryWorkflowRunDto) {
-    const { page = 1, limit = 10, status, sortOrder = 'desc' } = query;
+    const { page = 1, limit = 10, status, sortOrder = 'desc', from, to } = query;
     const skip = (page - 1) * limit;
 
-    const where = {
+    const where: any = {
       workflowDefinitionId: workflowId,
-      ...(status && { status: status as RunStatus }),
     };
+
+    if (status) {
+      where.status = status as RunStatus;
+    }
+
+    if (from || to) {
+      where.createdAt = {};
+      if (from) {
+        where.createdAt.gte = new Date(from);
+      }
+      if (to) {
+        where.createdAt.lte = new Date(to);
+      }
+    }
 
     const [runs, total] = await Promise.all([
       this.prisma.workflowRun.findMany({
@@ -189,13 +202,17 @@ export class WorkflowRunsService {
       this.prisma.workflowRun.count({ where }),
     ]);
 
+    const totalPages = Math.ceil(total / limit);
+    const nextCursor = page < totalPages ? String(page + 1) : undefined;
+
     return {
       data: runs,
       meta: {
-        page,
-        limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        page,
+        perPage: limit,
+        totalPages,
+        nextCursor,
       },
     };
   }

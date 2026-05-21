@@ -13,6 +13,7 @@ import { SseModule } from './modules/sse/sse.module';
 import { DatabaseModule } from './database/database.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TenantIsolationGuard } from './common/guards/tenant-isolation.guard';
+import { TenantThrottlerGuard } from './common/guards/throttle.guard';
 
 @Module({
   imports: [
@@ -44,6 +45,10 @@ import { TenantIsolationGuard } from './common/guards/tenant-isolation.guard';
     {
       provide: APP_GUARD,
       useClass: TenantIsolationGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: TenantThrottlerGuard,
     },
   ],
 })
