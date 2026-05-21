@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  slug      String   @unique @db.VarChar(100)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users             User[]
+  workflowDefinitions WorkflowDefinition[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique @db.VarChar(255)
+  password     String    @db.VarChar(255)
+  name         String    @db.VarChar(255)
+  role         Role      @default(VIEWER)
+  tenantId     Int
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdWorkflows  WorkflowDefinition[] @relation("WorkflowCreator")
+  stepRuns     StepRun[]
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+model WorkflowDefinition {
+  id           Int       @id @default(autoincrement())
+  name         String    @db.VarChar(255)
+  description  String?   @db.Text
+  tenantId     Int
+  createdById  Int
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy    User      @relation("WorkflowCreator", fields: [createdById], references: [id])
+  versions     WorkflowVersion[]
+  runs         WorkflowRun[]
+
+  @@map("workflow_definitions")
+}
+
+model WorkflowVersion {
+  id                  Int       @id @default(autoincrement())
+  workflowDefinitionId Int
+  version             Int
+  definition          Json      // DAG definition
+  createdAt           DateTime  @default(now())
+
+  workflowDefinition  WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowDefinitionId, version])
+  @@map("workflow_versions")
+}
+
+model WorkflowRun {
+  id                  Int       @id @default(autoincrement())
+  workflowDefinitionId Int
+  workflowVersionId   Int
+  status              RunStatus @default(PENDING)
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime  @default(now())
+
+  workflowDefinition  WorkflowDefinition @relation(fields: [workflowDefinitionId], references: [id])
+  stepRuns            StepRun[]
+
+  @@map("workflow_runs")
+}
+
+enum RunStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  TIMED_OUT
+  CANCELLED
+}
+
+model StepRun {
+  id           Int       @id @default(autoincrement())
+  workflowRunId Int
+  stepId       String    @db.VarChar(100)
+  stepName     String    @db.VarChar(255)
+  stepType     StepType
+  status       StepStatus @default(PENDING)
+  retryCount   Int       @default(0)
+  maxRetries   Int       @default(3)
+  output       Json?
+  error        String?   @db.Text
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  workflowRun  WorkflowRun @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+  user         User?       @relation(fields: [userId], references: [id])
+  userId       Int?
+
+  @@map("step_runs")
+}
+
+enum StepType {
+  HTTP_CALL
+  SCRIPT
+  DELAY
+  CONDITIONAL
+}
+
+enum StepStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  SKIPPED
+}
