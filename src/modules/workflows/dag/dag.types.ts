@@ -94,3 +94,14 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
 
 export const DEFAULT_STEP_TIMEOUT = 300000; // 5 minutes
 export const DEFAULT_WORKFLOW_TIMEOUT = 3600000; // 1 hour
+
+export class WorkflowTimeoutError extends Error {
+  constructor(
+    public readonly workflowRunId: number,
+    public readonly timeout: number,
+    public readonly elapsed: number,
+  ) {
+    super(`Workflow ${workflowRunId} timed out after ${elapsed}ms (timeout: ${timeout}ms)`);
+    this.name = 'WorkflowTimeoutError';
+  }
+}

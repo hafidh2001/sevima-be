@@ -8,6 +8,7 @@ import {
   RetryConfig,
   DEFAULT_RETRY_CONFIG,
   DEFAULT_WORKFLOW_TIMEOUT,
+  WorkflowTimeoutError,
 } from './dag.types';
 import { DAGValidator } from './dag-validator';
 import { DAGSorter } from './dag-sorter';
@@ -34,12 +35,19 @@ export class DAGExecutor {
     const executionPlan = this.sorter.createExecutionPlan(definition.nodes, definition.edges);
     this.logger.log(`Executing workflow ${workflowRunId} with ${executionPlan.stages.length} stages`);
 
-    context.startTime = new Date();
+    // Only set startTime if not already set
+    if (!context.startTime) {
+      context.startTime = new Date();
+    }
 
     // Execute stages
     for (const stage of executionPlan.stages) {
-      if (context.timeout && Date.now() - context.startTime.getTime() > context.timeout) {
-        throw new Error(`Workflow timeout exceeded after ${context.timeout}ms`);
+      if (context.timeout) {
+        const elapsed = Date.now() - context.startTime.getTime();
+        if (elapsed > context.timeout) {
+          this.logger.error(`Workflow ${workflowRunId} timed out after ${elapsed}ms (timeout: ${context.timeout}ms)`);
+          throw new WorkflowTimeoutError(workflowRunId, context.timeout, elapsed);
+        }
       }
 
       this.logger.log(`Executing stage ${stage.stageNumber}: ${stage.nodes.map((n) => n.id).join(', ')}`);
@@ -82,7 +90,8 @@ export class DAGExecutor {
 
         if (attempt <= retryConfig.maxRetries) {
           const delay = this.calculateBackoffDelay(attempt, retryConfig);
-          this.logger.warn(`Node ${node.id} failed, retrying in ${delay}ms (attempt ${attempt}/${retryConfig.maxRetries})`);
+          const delaySeconds = (delay / 1000).toFixed(1);
+          this.logger.warn(`Attempt ${attempt} failed, retrying in ${delaySeconds}s...`);
           await this.delay(delay);
 
           // Update step run with retry info
@@ -91,6 +100,8 @@ export class DAGExecutor {
             retryCount: attempt,
             error: lastError,
           });
+        } else {
+          this.logger.error(`Attempt ${attempt} failed, max retries exhausted`);
         }
       }
     }

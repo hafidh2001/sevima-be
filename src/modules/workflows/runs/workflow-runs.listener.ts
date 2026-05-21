@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../database/prisma.service';
 import { DAGExecutor } from '../dag/dag-executor';
-import { ExecutionContext } from '../dag/dag.types';
+import { ExecutionContext, WorkflowTimeoutError } from '../dag/dag.types';
 import { RunStatus, StepStatus } from '@prisma/client';
 
 interface WorkflowRunEvent {
@@ -81,15 +81,40 @@ export class WorkflowRunsListener {
 
       this.logger.log(`Workflow run ${runId} completed with status: ${allSuccess ? 'SUCCESS' : 'FAILED'}`);
     } catch (error) {
-      this.logger.error(`Workflow run ${runId} failed: ${error}`);
+      if (error instanceof WorkflowTimeoutError) {
+        this.logger.error(`Workflow run ${runId} timed out after ${error.elapsed}ms`);
 
-      await this.prisma.workflowRun.update({
-        where: { id: runId },
-        data: {
-          status: RunStatus.FAILED,
-          completedAt: new Date(),
-        },
-      });
+        // Cancel all running steps
+        await this.prisma.stepRun.updateMany({
+          where: {
+            workflowRunId: runId,
+            status: { in: [StepStatus.PENDING, StepStatus.RUNNING] },
+          },
+          data: {
+            status: StepStatus.FAILED,
+            error: 'Workflow timeout exceeded',
+            completedAt: new Date(),
+          },
+        });
+
+        await this.prisma.workflowRun.update({
+          where: { id: runId },
+          data: {
+            status: RunStatus.TIMED_OUT,
+            completedAt: new Date(),
+          },
+        });
+      } else {
+        this.logger.error(`Workflow run ${runId} failed: ${error}`);
+
+        await this.prisma.workflowRun.update({
+          where: { id: runId },
+          data: {
+            status: RunStatus.FAILED,
+            completedAt: new Date(),
+          },
+        });
+      }
     }
   }
 }
