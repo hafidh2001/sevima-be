@@ -5,6 +5,7 @@ import {
   Param,
   Query,
   Body,
+  Headers,
   ParseIntPipe,
   HttpCode,
   HttpStatus,
@@ -114,20 +115,20 @@ export class WorkflowRunsController {
 export class WebhooksController {
   constructor(private readonly workflowRunsService: WorkflowRunsService) {}
 
-  @Post('workflows/:workflowId')
+  @Post(':token')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Trigger workflow via webhook' })
-  @ApiParam({ name: 'workflowId', type: 'number' })
+  @ApiOperation({ summary: 'Trigger workflow via webhook token' })
+  @ApiParam({ name: 'token', type: 'string', description: 'Webhook token' })
   @ApiResponse({ status: 200, description: 'Webhook triggered successfully' })
-  @ApiResponse({ status: 401, description: 'Invalid webhook secret' })
+  @ApiResponse({ status: 401, description: 'Invalid webhook token' })
   @ApiResponse({ status: 404, description: 'Workflow not found' })
+  @ApiResponse({ status: 409, description: 'Duplicate request - idempotency key already used' })
   triggerWebhook(
-    @Param('workflowId', ParseIntPipe) workflowId: number,
-    @Query('secret') secret: string,
+    @Param('token') token: string,
+    @Headers('x-idempotency-key') idempotencyKey: string | undefined,
     @Body() body: { variables?: Record<string, any> },
   ) {
-    // In production, verify the webhook secret properly
-    return this.workflowRunsService.triggerWebhook(workflowId, body, secret, 1);
+    return this.workflowRunsService.triggerWebhook(token, body, idempotencyKey);
   }
 }

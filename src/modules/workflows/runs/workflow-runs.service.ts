@@ -88,14 +88,13 @@ export class WorkflowRunsService {
   }
 
   async triggerWebhook(
-    workflowId: number,
+    token: string,
     dto: { variables?: Record<string, any> },
-    secret: string,
-    tenantId: number,
+    idempotencyKey?: string,
   ) {
-    // Verify webhook secret (in production, use proper webhook secret verification)
+    // Find workflow by webhook token
     const workflow = await this.prisma.workflowDefinition.findFirst({
-      where: { id: workflowId, tenantId },
+      where: { webhookToken: token },
       include: {
         versions: {
           orderBy: { version: 'desc' },
@@ -108,11 +107,62 @@ export class WorkflowRunsService {
       throw new NotFoundException(`Workflow not found`);
     }
 
-    // For now, we just trigger - in production verify the secret matches
-    return this.trigger(workflowId, 0, tenantId, {
-      variables: dto.variables,
-      webhookSecret: secret,
+    if (!workflow.isActive) {
+      throw new BadRequestException('Workflow is not active');
+    }
+
+    const versionToRun = workflow.versions[0];
+    if (!versionToRun) {
+      throw new BadRequestException('No workflow version found');
+    }
+
+    // Check idempotency - if same idempotencyKey exists for this workflow, return existing run
+    if (idempotencyKey) {
+      const existingRun = await this.prisma.workflowRun.findFirst({
+        where: {
+          workflowDefinitionId: workflow.id,
+          idempotencyKey,
+        },
+      });
+
+      if (existingRun) {
+        return {
+          runId: existingRun.id,
+          workflowId: workflow.id,
+          status: existingRun.status,
+          message: 'Duplicate request - returning existing run',
+          isDuplicate: true,
+        };
+      }
+    }
+
+    // Create workflow run
+    const run = await this.prisma.workflowRun.create({
+      data: {
+        workflowDefinitionId: workflow.id,
+        workflowVersionId: versionToRun.id,
+        status: RunStatus.PENDING,
+        startedAt: new Date(),
+        idempotencyKey,
+      },
     });
+
+    // Emit event for async execution
+    this.eventEmitter.emit('workflow.run', {
+      runId: run.id,
+      workflowId: workflow.id,
+      definition: versionToRun.definition as any,
+      variables: dto.variables || {},
+      userId: 0, // System user for webhook triggers
+      tenantId: workflow.tenantId,
+    });
+
+    return {
+      runId: run.id,
+      workflowId: workflow.id,
+      status: run.status,
+      message: 'Workflow triggered via webhook',
+    };
   }
 
   async findAll(tenantId: number, workflowId: number, query: QueryWorkflowRunDto) {

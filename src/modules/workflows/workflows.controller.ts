@@ -12,10 +12,12 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { WorkflowsService } from './workflows.service';
+import { WorkflowRunsService } from './runs/workflow-runs.service';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { UpdateWorkflowDto } from './dto/update-workflow.dto';
 import { UpdateWorkflowStatusDto } from './dto/update-workflow.dto';
 import { QueryWorkflowDto } from './dto/query-workflow.dto';
+import { CreateWorkflowRunDto } from './runs/dto/create-workflow-run.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
@@ -24,7 +26,10 @@ import { Role } from '@prisma/client';
 @ApiBearerAuth('JWT-auth')
 @Controller('workflows')
 export class WorkflowsController {
-  constructor(private readonly workflowsService: WorkflowsService) {}
+  constructor(
+    private readonly workflowsService: WorkflowsService,
+    private readonly workflowRunsService: WorkflowRunsService,
+  ) {}
 
   @Post()
   @Roles(Role.ADMIN, Role.EDITOR)
@@ -60,6 +65,22 @@ export class WorkflowsController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.workflowsService.findOne(tenantId, id);
+  }
+
+  @Post(':id/trigger')
+  @Roles(Role.ADMIN, Role.EDITOR)
+  @ApiOperation({ summary: 'Manually trigger a workflow run' })
+  @ApiParam({ name: 'id', type: 'number' })
+  @ApiResponse({ status: 201, description: 'Workflow triggered successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid workflow or definition' })
+  @ApiResponse({ status: 404, description: 'Workflow not found' })
+  trigger(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('userId') userId: number,
+    @CurrentUser('tenantId') tenantId: number,
+    @Body() dto: CreateWorkflowRunDto,
+  ) {
+    return this.workflowRunsService.trigger(id, userId, tenantId, dto);
   }
 
   @Get(':id/versions')

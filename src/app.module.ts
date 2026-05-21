@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { UsersModule } from './modules/users/users.module';
 import { WorkflowsModule } from './modules/workflows/workflows.module';
+import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { DatabaseModule } from './database/database.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TenantIsolationGuard } from './common/guards/tenant-isolation.guard';
@@ -31,6 +32,7 @@ import { TenantIsolationGuard } from './common/guards/tenant-isolation.guard';
     TenantsModule,
     UsersModule,
     WorkflowsModule,
+    SchedulerModule,
   ],
   providers: [
     {
