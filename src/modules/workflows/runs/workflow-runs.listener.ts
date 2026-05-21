@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../database/prisma.service';
 import { DAGExecutor } from '../dag/dag-executor';
+import { SseService } from '../../sse/sse.service';
 import { ExecutionContext, WorkflowTimeoutError } from '../dag/dag.types';
 import { RunStatus, StepStatus } from '@prisma/client';
 
@@ -14,6 +15,15 @@ interface WorkflowRunEvent {
   tenantId: number;
 }
 
+interface StepEventPayload {
+  runId: number;
+  stepId: string;
+  status: StepStatus;
+  output?: any;
+  error?: string;
+  retryCount?: number;
+}
+
 @Injectable()
 export class WorkflowRunsListener {
   private readonly logger = new Logger(WorkflowRunsListener.name);
@@ -21,6 +31,7 @@ export class WorkflowRunsListener {
   constructor(
     private readonly prisma: PrismaService,
     private readonly dagExecutor: DAGExecutor,
+    private readonly sseService: SseService,
   ) {}
 
   @OnEvent('workflow.run')
@@ -116,5 +127,23 @@ export class WorkflowRunsListener {
         });
       }
     }
+  }
+
+  @OnEvent('step.update', { async: true })
+  async handleStepUpdate(payload: StepEventPayload) {
+    const { runId, stepId, status, output, error, retryCount } = payload;
+
+    // Broadcast to SSE subscribers
+    this.sseService.broadcastStepEvent({
+      runId,
+      stepId,
+      status,
+      timestamp: new Date(),
+      output,
+      error,
+      retryCount,
+    });
+
+    this.logger.debug(`Step ${stepId} in run ${runId} updated to ${status}`);
   }
 }

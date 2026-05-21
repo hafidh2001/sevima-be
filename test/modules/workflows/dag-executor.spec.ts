@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DAGExecutor } from '../../../src/modules/workflows/dag/dag-executor';
 import { DAGValidator } from '../../../src/modules/workflows/dag/dag-validator';
 import { DAGSorter } from '../../../src/modules/workflows/dag/dag-sorter';
@@ -11,6 +12,7 @@ describe('DAGExecutor', () => {
   let prismaService: jest.Mocked<PrismaService>;
   let validator: DAGValidator;
   let sorter: DAGSorter;
+  let eventEmitter: EventEmitter2;
 
   const mockPrismaService = {
     stepRun: {
@@ -22,6 +24,10 @@ describe('DAGExecutor', () => {
     },
   };
 
+  const mockEventEmitter = {
+    emit: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -31,6 +37,7 @@ describe('DAGExecutor', () => {
         DAGValidator,
         DAGSorter,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
     }).compile();
 
@@ -38,6 +45,7 @@ describe('DAGExecutor', () => {
     prismaService = module.get(PrismaService);
     validator = module.get<DAGValidator>(DAGValidator);
     sorter = module.get<DAGSorter>(DAGSorter);
+    eventEmitter = module.get<EventEmitter2>(EventEmitter2);
   });
 
   describe('Retry Logic', () => {

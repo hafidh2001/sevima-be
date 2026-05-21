@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../database/prisma.service';
 import {
   DAGDefinition,
@@ -14,6 +15,15 @@ import { DAGValidator } from './dag-validator';
 import { DAGSorter } from './dag-sorter';
 import { StepType, StepStatus } from '@prisma/client';
 
+interface StepEventPayload {
+  runId: number;
+  stepId: string;
+  status: StepStatus;
+  output?: any;
+  error?: string;
+  retryCount?: number;
+}
+
 @Injectable()
 export class DAGExecutor {
   private readonly logger = new Logger(DAGExecutor.name);
@@ -22,6 +32,7 @@ export class DAGExecutor {
     private readonly prisma: PrismaService,
     private readonly validator: DAGValidator,
     private readonly sorter: DAGSorter,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async execute(workflowRunId: number, definition: DAGDefinition, context: ExecutionContext): Promise<Map<string, StepExecutionResult>> {
@@ -116,6 +127,10 @@ export class DAGExecutor {
     };
 
     context.results.set(node.id, failedResult);
+
+    // Emit final FAILED event with retry info
+    this.emitStepEvent(workflowRunId, node.id, StepStatus.FAILED, undefined, failedResult.error, failedResult.retryCount);
+
     return failedResult;
   }
 
@@ -131,6 +146,9 @@ export class DAGExecutor {
       status: StepStatus.RUNNING,
       startedAt,
     });
+
+    // Emit RUNNING event
+    this.emitStepEvent(workflowRunId, node.id, StepStatus.RUNNING);
 
     try {
       let output: any;
@@ -164,13 +182,17 @@ export class DAGExecutor {
       }
 
       const completedAt = new Date();
+      const finalStatus = status === 'SUCCESS' ? StepStatus.SUCCESS : StepStatus.SKIPPED;
 
       await this.updateStepRun(workflowRunId, node.id, {
-        status: status === 'SUCCESS' ? StepStatus.SUCCESS : StepStatus.SKIPPED,
+        status: finalStatus,
         output,
         startedAt,
         completedAt,
       });
+
+      // Emit SUCCESS event
+      this.emitStepEvent(workflowRunId, node.id, finalStatus, output);
 
       return {
         nodeId: node.id,
@@ -191,8 +213,30 @@ export class DAGExecutor {
         completedAt,
       });
 
+      // Emit FAILED event
+      this.emitStepEvent(workflowRunId, node.id, StepStatus.FAILED, undefined, errorMessage);
+
       throw error;
     }
+  }
+
+  private emitStepEvent(
+    runId: number,
+    stepId: string,
+    status: StepStatus,
+    output?: any,
+    error?: string,
+    retryCount?: number,
+  ): void {
+    const payload: StepEventPayload = {
+      runId,
+      stepId,
+      status,
+      output,
+      error,
+      retryCount,
+    };
+    this.eventEmitter.emit('step.update', payload);
   }
 
   private async executeHttpCall(node: DAGNode, context: ExecutionContext): Promise<any> {
