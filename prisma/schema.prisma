@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // eslint-disable-next-line @typescript-eslint/tslint/config
   url      = env("DATABASE_URL")
 }
 

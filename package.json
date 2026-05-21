@@ -15,7 +15,8 @@
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "db:seed": "ts-node -P tsconfig.test.json prisma/seed.ts"
   },
   "keywords": [
     "nestjs",
@@ -39,6 +40,7 @@
     "@nestjs/terminus": "^11.1.1",
     "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "passport": "^0.7.0",
@@ -69,7 +71,12 @@
     "rootDir": ".",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "tsconfig.test.json" }]
+      "^.+\\.(t|j)s$": [
+        "ts-jest",
+        {
+          "tsconfig": "tsconfig.test.json"
+        }
+      ]
     },
     "collectCoverageFrom": [
       "src/**/*.(t|j)s"
