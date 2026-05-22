@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, IsEnum } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, IsEnum, IsInt } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RegisterDto {
@@ -18,10 +18,10 @@ export class RegisterDto {
   @IsNotEmpty()
   name!: string;
 
-  @ApiProperty({ example: 'flowforge-demo' })
-  @IsString()
+  @ApiProperty({ example: 1 })
+  @IsInt()
   @IsNotEmpty()
-  tenantSlug!: string;
+  tenantId!: number;
 
   @ApiProperty({ enum: ['ADMIN', 'EDITOR', 'VIEWER'], required: false })
   @IsOptional()

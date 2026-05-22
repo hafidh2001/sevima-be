@@ -60,7 +60,7 @@ export class AuthService {
     }
 
     const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: dto.tenantSlug },
+      where: { id: dto.tenantId },
     });
 
     if (!tenant) {
