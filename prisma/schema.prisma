@@ -22,17 +22,26 @@ model Tenant {
   @@map("tenants")
 }
 
+model Role {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique @db.VarChar(50)  // ADMIN, EDITOR, VIEWER
+  users     User[]
+
+  @@map("roles")
+}
+
 model User {
   id           Int       @id @default(autoincrement())
   email        String    @unique @db.VarChar(255)
   password     String    @db.VarChar(255)
   name         String    @db.VarChar(255)
-  role         Role      @default(VIEWER)
+  roleId       Int
   tenantId     Int
   isActive     Boolean   @default(true)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  role         Role      @relation(fields: [roleId], references: [id])
   tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdWorkflows  WorkflowDefinition[] @relation("WorkflowCreator")
   stepRuns     StepRun[]
@@ -40,30 +49,30 @@ model User {
   @@map("users")
 }
 
-enum Role {
-  ADMIN
-  EDITOR
-  VIEWER
-}
-
 model WorkflowDefinition {
-  id           Int       @id @default(autoincrement())
-  name         String    @db.VarChar(255)
-  description  String?   @db.Text
-  tenantId     Int
-  createdById  Int
-  isActive     Boolean   @default(true)
-  cronExpression String? @db.VarChar(100)  // Cron expression for scheduled runs
-  webhookToken String?  @unique @db.VarChar(64) // Unique token for webhook triggering
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id             Int       @id @default(autoincrement())
+  name           String    @db.VarChar(255)
+  description    String?   @db.Text
+  tenantId       Int
+  createdById    Int
+  status         WorkflowStatus @default(ACTIVE)
+  cronExpression String?   @db.VarChar(100)
+  webhookToken   String?   @unique @db.VarChar(64)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdBy    User      @relation("WorkflowCreator", fields: [createdById], references: [id])
-  versions     WorkflowVersion[]
-  runs         WorkflowRun[]
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy      User      @relation("WorkflowCreator", fields: [createdById], references: [id])
+  versions       WorkflowVersion[]
+  runs           WorkflowRun[]
 
   @@map("workflow_definitions")
+}
+
+enum WorkflowStatus {
+  ACTIVE
+  DRAFT
+  ARCHIVED
 }
 
 model WorkflowVersion {

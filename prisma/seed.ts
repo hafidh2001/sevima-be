@@ -1,4 +1,4 @@
-import { PrismaClient, Role, StepType, StepStatus, RunStatus, LogLevel } from '@prisma/client';
+import { PrismaClient, WorkflowStatus, StepType, StepStatus, RunStatus, LogLevel } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -29,6 +29,15 @@ const createDAGDefinition = (stepName: string) => ({
 async function main() {
   console.log('Starting database seed...\n');
 
+  // Create roles
+  const roles = await Promise.all([
+    prisma.role.upsert({ where: { name: 'ADMIN' }, update: {}, create: { name: 'ADMIN' } }),
+    prisma.role.upsert({ where: { name: 'EDITOR' }, update: {}, create: { name: 'EDITOR' } }),
+    prisma.role.upsert({ where: { name: 'VIEWER' }, update: {}, create: { name: 'VIEWER' } }),
+  ]);
+  const roleMap = Object.fromEntries(roles.map(r => [r.name, r.id]));
+  console.log(`✓ Roles created: ADMIN=${roleMap.ADMIN}, EDITOR=${roleMap.EDITOR}, VIEWER=${roleMap.VIEWER}`);
+
   // Create tenants
   const tenants = [
     { name: 'FlowForge Demo', slug: 'flowforge-demo', description: 'Demo tenant for FlowForge platform' },
@@ -40,42 +49,49 @@ async function main() {
 
   const createdTenants: Record<string, { id: number; name: string; slug: string }> = {};
   for (const tenant of tenants) {
-    const created = await prisma.tenant.upsert({
-      where: { slug: tenant.slug },
-      update: {},
-      create: { name: tenant.name, slug: tenant.slug, isActive: true },
+    const created = await prisma.tenant.create({
+      data: { name: tenant.name, slug: tenant.slug, isActive: true },
     });
     createdTenants[tenant.slug] = created;
     console.log(`✓ Tenant: ${created.name}`);
   }
 
-  // Create users - each tenant has Admin, Editor, Viewer + 2 extra users for demo variety
+  // Create users - 5-6 users per tenant = 25-30 users total
   const usersData = [
-    // FlowForge Demo
-    { email: 'admin@flowforge.dev', name: 'Admin User', role: Role.ADMIN, tenantSlug: 'flowforge-demo' },
-    { email: 'editor@flowforge.dev', name: 'Editor User', role: Role.EDITOR, tenantSlug: 'flowforge-demo' },
-    { email: 'viewer@flowforge.dev', name: 'Viewer User', role: Role.VIEWER, tenantSlug: 'flowforge-demo' },
-    { email: 'dev@flowforge.dev', name: 'Developer User', role: Role.EDITOR, tenantSlug: 'flowforge-demo' },
-    // Acme Corp
-    { email: 'admin@acme.corp', name: 'Sarah Mitchell', role: Role.ADMIN, tenantSlug: 'acme-corp' },
-    { email: 'dev@acme.corp', name: 'James Wilson', role: Role.EDITOR, tenantSlug: 'acme-corp' },
-    { email: 'analyst@acme.corp', name: 'Emily Chen', role: Role.VIEWER, tenantSlug: 'acme-corp' },
-    { email: 'lead@acme.corp', name: 'Robert Taylor', role: Role.EDITOR, tenantSlug: 'acme-corp' },
-    // TechStart Indonesia
-    { email: 'admin@techstart.id', name: 'Budi Santoso', role: Role.ADMIN, tenantSlug: 'techstart-id' },
-    { email: 'developer@techstart.id', name: 'Anita Putri', role: Role.EDITOR, tenantSlug: 'techstart-id' },
-    { email: 'qa@techstart.id', name: 'Dewi Lestari', role: Role.VIEWER, tenantSlug: 'techstart-id' },
-    { email: 'lead@techstart.id', name: 'Ahmad Rizki', role: Role.EDITOR, tenantSlug: 'techstart-id' },
-    // Global Systems
-    { email: 'admin@global.systems', name: 'Michael Brown', role: Role.ADMIN, tenantSlug: 'global-systems' },
-    { email: 'engineer@global.systems', name: 'Lisa Anderson', role: Role.EDITOR, tenantSlug: 'global-systems' },
-    { email: 'viewer@global.systems', name: 'David Kim', role: Role.VIEWER, tenantSlug: 'global-systems' },
-    { email: 'ops@global.systems', name: 'Jennifer Martinez', role: Role.EDITOR, tenantSlug: 'global-systems' },
-    // DevOps Automation
-    { email: 'admin@devops.auto', name: 'Alex Turner', role: Role.ADMIN, tenantSlug: 'devops-auto' },
-    { email: 'pipeline@devops.auto', name: 'Maria Garcia', role: Role.EDITOR, tenantSlug: 'devops-auto' },
-    { email: 'sre@devops.auto', name: 'Chris Johnson', role: Role.EDITOR, tenantSlug: 'devops-auto' },
-    { email: 'intern@devops.auto', name: 'Sam Wilson', role: Role.VIEWER, tenantSlug: 'devops-auto' },
+    // FlowForge Demo (6 users)
+    { email: 'admin@flowforge.dev', name: 'Admin User', roleName: 'ADMIN', tenantSlug: 'flowforge-demo' },
+    { email: 'editor@flowforge.dev', name: 'Editor User', roleName: 'EDITOR', tenantSlug: 'flowforge-demo' },
+    { email: 'viewer@flowforge.dev', name: 'Viewer User', roleName: 'VIEWER', tenantSlug: 'flowforge-demo' },
+    { email: 'dev1@flowforge.dev', name: 'Developer One', roleName: 'EDITOR', tenantSlug: 'flowforge-demo' },
+    { email: 'dev2@flowforge.dev', name: 'Developer Two', roleName: 'EDITOR', tenantSlug: 'flowforge-demo' },
+    { email: 'analyst@flowforge.dev', name: 'Analyst User', roleName: 'VIEWER', tenantSlug: 'flowforge-demo' },
+    // Acme Corp (6 users)
+    { email: 'admin@acme.corp', name: 'Sarah Mitchell', roleName: 'ADMIN', tenantSlug: 'acme-corp' },
+    { email: 'dev@acme.corp', name: 'James Wilson', roleName: 'EDITOR', tenantSlug: 'acme-corp' },
+    { email: 'analyst@acme.corp', name: 'Emily Chen', roleName: 'VIEWER', tenantSlug: 'acme-corp' },
+    { email: 'lead@acme.corp', name: 'Robert Taylor', roleName: 'EDITOR', tenantSlug: 'acme-corp' },
+    { email: 'qa@acme.corp', name: 'Linda Martinez', roleName: 'VIEWER', tenantSlug: 'acme-corp' },
+    { email: 'intern@acme.corp', name: 'Kevin Lee', roleName: 'VIEWER', tenantSlug: 'acme-corp' },
+    // TechStart Indonesia (6 users)
+    { email: 'admin@techstart.id', name: 'Budi Santoso', roleName: 'ADMIN', tenantSlug: 'techstart-id' },
+    { email: 'developer@techstart.id', name: 'Anita Putri', roleName: 'EDITOR', tenantSlug: 'techstart-id' },
+    { email: 'qa@techstart.id', name: 'Dewi Lestari', roleName: 'VIEWER', tenantSlug: 'techstart-id' },
+    { email: 'lead@techstart.id', name: 'Ahmad Rizki', roleName: 'EDITOR', tenantSlug: 'techstart-id' },
+    { email: 'dev@techstart.id', name: 'Rina Wati', roleName: 'EDITOR', tenantSlug: 'techstart-id' },
+    { email: 'analyst@techstart.id', name: 'Joko Pramono', roleName: 'VIEWER', tenantSlug: 'techstart-id' },
+    // Global Systems (5 users)
+    { email: 'admin@global.systems', name: 'Michael Brown', roleName: 'ADMIN', tenantSlug: 'global-systems' },
+    { email: 'engineer@global.systems', name: 'Lisa Anderson', roleName: 'EDITOR', tenantSlug: 'global-systems' },
+    { email: 'viewer@global.systems', name: 'David Kim', roleName: 'VIEWER', tenantSlug: 'global-systems' },
+    { email: 'ops@global.systems', name: 'Jennifer Martinez', roleName: 'EDITOR', tenantSlug: 'global-systems' },
+    { email: 'sre@global.systems', name: 'Thomas Lee', roleName: 'EDITOR', tenantSlug: 'global-systems' },
+    // DevOps Automation (6 users)
+    { email: 'admin@devops.auto', name: 'Alex Turner', roleName: 'ADMIN', tenantSlug: 'devops-auto' },
+    { email: 'pipeline@devops.auto', name: 'Maria Garcia', roleName: 'EDITOR', tenantSlug: 'devops-auto' },
+    { email: 'sre@devops.auto', name: 'Chris Johnson', roleName: 'EDITOR', tenantSlug: 'devops-auto' },
+    { email: 'intern@devops.auto', name: 'Sam Wilson', roleName: 'VIEWER', tenantSlug: 'devops-auto' },
+    { email: 'devops1@devops.auto', name: 'Rachel Green', roleName: 'EDITOR', tenantSlug: 'devops-auto' },
+    { email: 'devops2@devops.auto', name: 'Mark Davis', roleName: 'VIEWER', tenantSlug: 'devops-auto' },
   ];
 
   const users: Record<string, { id: number; email: string; tenantId: number }> = {};
@@ -83,29 +99,28 @@ async function main() {
     const tenant = createdTenants[userData.tenantSlug];
     if (!tenant) continue;
 
-    const user = await prisma.user.upsert({
-      where: { email: userData.email },
-      update: {},
-      create: {
+    const user = await prisma.user.create({
+      data: {
         email: userData.email,
         password: PASSWORD_HASH,
         name: userData.name,
-        role: userData.role,
+        roleId: roleMap[userData.roleName as keyof typeof roleMap],
         tenantId: tenant.id,
         isActive: true,
       },
     });
     users[userData.email] = { id: user.id, email: user.email, tenantId: user.tenantId };
-    console.log(`  ✓ User: ${user.email} (${user.role})`);
+    console.log(`  ✓ User: ${user.email} (${userData.roleName})`);
   }
 
-  // Workflow templates per tenant for variety
+  // Workflow templates per tenant
   const workflowTemplates: Record<string, string[]> = {
     'flowforge-demo': [
       'User Onboarding Workflow',
       'Data Sync Pipeline',
       'Email Notification Service',
       'Report Generation Pipeline',
+      'Lead Scoring Automation',
     ],
     'acme-corp': [
       'Order Processing Pipeline',
@@ -113,18 +128,21 @@ async function main() {
       'Inventory Check Workflow',
       'Monthly Report Generator',
       'Invoice Processing',
+      'Shipping Tracking Workflow',
     ],
     'techstart-id': [
       'Payment Verification Flow',
       'KYC Document Processing',
       'Transaction Monitoring',
       'Fraud Detection Pipeline',
+      'Balance Check Automation',
     ],
     'global-systems': [
       'Infrastructure Provisioning',
       'Backup and Recovery',
       'Server Health Check',
       'Deployment Automation',
+      'Certificate Renewal',
     ],
     'devops-auto': [
       'CI/CD Pipeline',
@@ -132,12 +150,13 @@ async function main() {
       'Infrastructure Monitoring',
       'Log Aggregation Service',
       'Alert Management System',
+      'Secret Rotation',
     ],
   };
 
-  // Create workflows - each user creates 2-3 workflows
+  // Create workflows - each user creates 2-3 workflows with varied statuses
   let workflowIdCounter = 1;
-  const workflows: { id: number; name: string; tenantId: number; createdById: number }[] = [];
+  const workflows: { id: number; name: string; tenantId: number; createdById: number; status: WorkflowStatus }[] = [];
 
   for (const userEmail of Object.keys(users)) {
     const user = users[userEmail];
@@ -149,15 +168,22 @@ async function main() {
       const templateName = templates[(workflowIdCounter + i) % templates.length];
       const workflowName = `${templateName} ${user.email.split('@')[0].split('.')[0].toUpperCase()}`;
 
-      const workflow = await prisma.workflowDefinition.upsert({
-        where: { id: workflowIdCounter },
-        update: {},
-        create: {
+      // Determine workflow status: active, draft, or archived
+      const statusVariant = workflowIdCounter % 10;
+      let status: WorkflowStatus = WorkflowStatus.ACTIVE;
+      if (statusVariant === 0) {
+        status = WorkflowStatus.DRAFT;
+      } else if (statusVariant === 1) {
+        status = WorkflowStatus.ARCHIVED;
+      }
+
+      const workflow = await prisma.workflowDefinition.create({
+        data: {
           name: workflowName,
           description: `${templateName} managed by ${user.email}`,
           tenantId: user.tenantId,
           createdById: user.id,
-          isActive: workflowIdCounter % 5 !== 0, // Some workflows are "draft" (inactive)
+          status,
         },
       });
 
@@ -166,20 +192,14 @@ async function main() {
         name: workflow.name,
         tenantId: workflow.tenantId,
         createdById: workflow.createdById,
+        status: workflow.status,
       });
 
       // Create 1-2 versions per workflow
       const versionCount = 1 + (workflowIdCounter % 2);
       for (let v = 1; v <= versionCount; v++) {
-        await prisma.workflowVersion.upsert({
-          where: {
-            workflowDefinitionId_version: {
-              workflowDefinitionId: workflow.id,
-              version: v,
-            },
-          },
-          update: {},
-          create: {
+        await prisma.workflowVersion.create({
+          data: {
             workflowDefinitionId: workflow.id,
             version: v,
             definition: createDAGDefinition(workflowName),
@@ -187,19 +207,21 @@ async function main() {
         });
       }
 
-      console.log(`  ✓ Workflow: ${workflow.name} (${versionCount} version${versionCount > 1 ? 's' : ''})`);
+      console.log(`  ✓ Workflow: ${workflow.name} (v${versionCount}) [${status.toLowerCase()}]`);
       workflowIdCounter++;
     }
   }
 
   // Create workflow runs - each workflow has multiple runs with varied statuses
-  const runStatuses = [
-    'SUCCESS' as const,
-    'SUCCESS' as const,
-    'SUCCESS' as const,
-    'FAILED' as const,
-    'RUNNING' as const,
-    'PENDING' as const,
+  const runStatuses: RunStatus[] = [
+    RunStatus.SUCCESS,
+    RunStatus.SUCCESS,
+    RunStatus.SUCCESS,
+    RunStatus.SUCCESS,
+    RunStatus.FAILED,
+    RunStatus.RUNNING,
+    RunStatus.PENDING,
+    RunStatus.TIMED_OUT,
   ];
 
   let runIdCounter = 1;
@@ -212,16 +234,14 @@ async function main() {
     const runCount = 5 + (workflow.id % 6);
 
     for (let r = 0; r < runCount; r++) {
-      const status = runStatuses[runIdCounter % runStatuses.length] as RunStatus;
-      const isCompleted = status === 'SUCCESS' || status === 'FAILED';
-      const startedAt = new Date(Date.now() - Math.random() * 86400000 * 30); // Random within 30 days
+      const status = runStatuses[runIdCounter % runStatuses.length];
+      const isCompleted = status === RunStatus.SUCCESS || status === RunStatus.FAILED || status === RunStatus.TIMED_OUT;
+      const startedAt = new Date(Date.now() - Math.random() * 86400000 * 30);
 
-      const run = await prisma.workflowRun.upsert({
-        where: { id: runIdCounter },
-        update: {},
-        create: {
+      const run = await prisma.workflowRun.create({
+        data: {
           workflowDefinitionId: workflow.id,
-          workflowVersionId: workflow.id, // Use workflow id as version id (simplified)
+          workflowVersionId: workflow.id,
           status,
           startedAt,
           completedAt: isCompleted ? new Date(startedAt.getTime() + Math.random() * 60000 + 5000) : null,
@@ -241,12 +261,14 @@ async function main() {
         const stepDef = stepDefs[s];
         let stepStatus: StepStatus = StepStatus.SUCCESS;
 
-        if (status === 'FAILED' && s === 2) {
+        if (status === RunStatus.FAILED && s === 2) {
           stepStatus = StepStatus.FAILED;
-        } else if (status === 'RUNNING') {
+        } else if (status === RunStatus.RUNNING) {
           stepStatus = s < 3 ? StepStatus.SUCCESS : StepStatus.RUNNING;
-        } else if (status === 'PENDING') {
+        } else if (status === RunStatus.PENDING) {
           stepStatus = StepStatus.PENDING;
+        } else if (status === RunStatus.TIMED_OUT) {
+          stepStatus = s < 4 ? StepStatus.SUCCESS : StepStatus.SKIPPED;
         }
 
         const stepStartedAt = new Date(startedAt.getTime() + s * 5000);
@@ -254,10 +276,8 @@ async function main() {
           ? new Date(stepStartedAt.getTime() + Math.random() * 3000 + 1000)
           : null;
 
-        const stepRun = await prisma.stepRun.upsert({
-          where: { id: runIdCounter * 100 + s },
-          update: {},
-          create: {
+        const stepRun = await prisma.stepRun.create({
+          data: {
             workflowRunId: run.id,
             stepId: stepDef.stepId,
             stepName: stepDef.stepName,
@@ -269,7 +289,7 @@ async function main() {
             error: stepStatus === StepStatus.FAILED ? 'Connection timeout after 30000ms' : undefined,
             startedAt: stepStartedAt,
             completedAt: stepCompletedAt,
-            userId: s === 2 ? workflow.createdById : undefined, // Assign processing step to creator
+            userId: s === 2 ? workflow.createdById : undefined,
           },
         });
 
