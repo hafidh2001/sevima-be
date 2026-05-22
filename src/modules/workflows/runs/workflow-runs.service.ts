@@ -4,7 +4,7 @@ import { DAGExecutor } from '../dag/dag-executor';
 import { DAGValidator } from '../dag/dag-validator';
 import { CreateWorkflowRunDto, QueryWorkflowRunDto } from './dto/create-workflow-run.dto';
 import { WebhookTriggerDto } from './dto/webhook-trigger.dto';
-import { RunStatus, StepStatus } from '@prisma/client';
+import { RunStatus, StepStatus, Prisma } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
@@ -313,37 +313,55 @@ export class WorkflowRunsService {
   async getStats(tenantId: number, workflowId?: number) {
     const where = workflowId ? { workflowDefinition: { tenantId, id: workflowId } } : { workflowDefinition: { tenantId } };
 
-    const [total, pending, running, success, failed] = await Promise.all([
-      this.prisma.workflowRun.count({ where }),
-      this.prisma.workflowRun.count({ where: { ...where, status: RunStatus.PENDING } }),
-      this.prisma.workflowRun.count({ where: { ...where, status: RunStatus.RUNNING } }),
-      this.prisma.workflowRun.count({ where: { ...where, status: RunStatus.SUCCESS } }),
-      this.prisma.workflowRun.count({ where: { ...where, status: RunStatus.FAILED } }),
-    ]);
+    // OPTIMIZATION: Single query with GROUP BY instead of 6 separate COUNT queries
+    const statusCounts = await this.prisma.workflowRun.groupBy({
+      by: ['status'],
+      where,
+      _count: { status: true },
+    });
 
-    // Calculate average duration for completed runs
-    const completedRuns = await this.prisma.workflowRun.findMany({
+    // Transform groupBy results into a map
+    const countByStatus = new Map<string, number>();
+    let total = 0;
+    for (const item of statusCounts) {
+      countByStatus.set(item.status, item._count.status);
+      total += item._count.status;
+    }
+
+    const pending = countByStatus.get(RunStatus.PENDING) || 0;
+    const running = countByStatus.get(RunStatus.RUNNING) || 0;
+    const success = countByStatus.get(RunStatus.SUCCESS) || 0;
+    const failed = countByStatus.get(RunStatus.FAILED) || 0;
+    const timedOut = countByStatus.get(RunStatus.TIMED_OUT) || 0;
+    const cancelled = countByStatus.get(RunStatus.CANCELLED) || 0;
+
+    // OPTIMIZATION: Use AVG() in database instead of loading all rows into memory
+    const durationResult = await this.prisma.workflowRun.aggregate({
       where: {
         ...where,
         status: { in: [RunStatus.SUCCESS, RunStatus.FAILED, RunStatus.CANCELLED] },
         completedAt: { not: null },
+        startedAt: { not: null },
       },
-      select: {
-        startedAt: true,
-        completedAt: true,
+      _avg: {
+        // Custom aggregation - we calculate from the difference of timestamps
       },
     });
 
-    let avgDuration = 0;
-    if (completedRuns.length > 0) {
-      const totalDuration = completedRuns.reduce((sum, run) => {
-        if (run.startedAt && run.completedAt) {
-          return sum + (run.completedAt.getTime() - run.startedAt.getTime());
-        }
-        return sum;
-      }, 0);
-      avgDuration = totalDuration / completedRuns.length;
-    }
+    // Calculate average duration using database-level computation
+    const avgDurationResult = await this.prisma.$queryRaw<{ avg_duration: number | null }[]>`
+      SELECT AVG(EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000) as avg_duration
+      FROM workflow_runs
+      WHERE workflow_definition_id IN (
+        SELECT id FROM workflow_definitions WHERE tenant_id = ${tenantId}
+        ${workflowId ? Prisma.sql`AND id = ${workflowId}` : Prisma.empty}
+      )
+      AND status IN ('SUCCESS', 'FAILED', 'CANCELLED')
+      AND completed_at IS NOT NULL
+      AND started_at IS NOT NULL
+    `;
+
+    const avgDuration = avgDurationResult[0]?.avg_duration || 0;
 
     return {
       total,
@@ -352,9 +370,10 @@ export class WorkflowRunsService {
         running,
         success,
         failed,
-        cancelled: total - pending - running - success - failed,
+        timedOut,
+        cancelled,
       },
-      averageDurationMs: avgDuration,
+      averageDurationMs: Number(avgDuration),
     };
   }
 }
