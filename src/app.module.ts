@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleDestroy } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -10,10 +10,12 @@ import { UsersModule } from './modules/users/users.module';
 import { WorkflowsModule } from './modules/workflows/workflows.module';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { SseModule } from './modules/sse/sse.module';
+import { LogsModule } from './modules/workflows/logs/logs.module';
 import { DatabaseModule } from './database/database.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TenantIsolationGuard } from './common/guards/tenant-isolation.guard';
 import { TenantThrottlerGuard } from './common/guards/throttle.guard';
+import { StepLogService } from './modules/workflows/logs/step-log.service';
 
 @Module({
   imports: [
@@ -36,6 +38,7 @@ import { TenantThrottlerGuard } from './common/guards/throttle.guard';
     WorkflowsModule,
     SchedulerModule,
     SseModule,
+    LogsModule,
   ],
   providers: [
     {

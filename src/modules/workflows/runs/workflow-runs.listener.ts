@@ -3,8 +3,9 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../../database/prisma.service';
 import { DAGExecutor } from '../dag/dag-executor';
 import { SseService } from '../../sse/sse.service';
+import { StepLogService } from '../logs/step-log.service';
 import { ExecutionContext, WorkflowTimeoutError } from '../dag/dag.types';
-import { RunStatus, StepStatus } from '@prisma/client';
+import { RunStatus, StepStatus, LogLevel } from '@prisma/client';
 
 interface WorkflowRunEvent {
   runId: number;
@@ -32,6 +33,7 @@ export class WorkflowRunsListener {
     private readonly prisma: PrismaService,
     private readonly dagExecutor: DAGExecutor,
     private readonly sseService: SseService,
+    private readonly stepLogService: StepLogService,
   ) {}
 
   @OnEvent('workflow.run')
@@ -49,7 +51,7 @@ export class WorkflowRunsListener {
 
       // Create step run records
       for (const node of definition.nodes) {
-        await this.prisma.stepRun.create({
+        const stepRun = await this.prisma.stepRun.create({
           data: {
             workflowRunId: runId,
             stepId: node.id,
@@ -59,6 +61,14 @@ export class WorkflowRunsListener {
             retryCount: 0,
             maxRetries: node.retryConfig?.maxRetries || 3,
           },
+        });
+
+        // Log step creation
+        await this.stepLogService.log({
+          stepRunId: stepRun.id,
+          level: LogLevel.INFO,
+          message: `Step "${node.name}" (${node.type}) initialized with ${node.retryConfig?.maxRetries || 3} max retries`,
+          metadata: { nodeId: node.id, maxRetries: node.retryConfig?.maxRetries || 3 },
         });
       }
 
@@ -143,6 +153,36 @@ export class WorkflowRunsListener {
       error,
       retryCount,
     });
+
+    // Find stepRun for logging
+    const stepRun = await this.prisma.stepRun.findFirst({
+      where: { workflowRunId: runId, stepId },
+    });
+
+    if (stepRun) {
+      const logLevel = status === StepStatus.FAILED ? LogLevel.ERROR : LogLevel.INFO;
+      let logMessage = `Step "${stepRun.stepName}" ${status.toLowerCase()}`;
+
+      if (status === StepStatus.RUNNING) {
+        logMessage = `Step "${stepRun.stepName}" started (retry: ${retryCount || 0})`;
+      } else if (status === StepStatus.FAILED) {
+        logMessage = `Step "${stepRun.stepName}" failed: ${error}`;
+      } else if (status === StepStatus.SUCCESS) {
+        logMessage = `Step "${stepRun.stepName}" completed successfully`;
+      }
+
+      await this.stepLogService.log({
+        stepRunId: stepRun.id,
+        level: logLevel,
+        message: logMessage,
+        metadata: {
+          status,
+          output: status === StepStatus.SUCCESS ? output : undefined,
+          error: status === StepStatus.FAILED ? error : undefined,
+          retryCount,
+        },
+      });
+    }
 
     this.logger.debug(`Step ${stepId} in run ${runId} updated to ${status}`);
   }

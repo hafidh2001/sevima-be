@@ -123,8 +123,39 @@ model StepRun {
   workflowRun  WorkflowRun @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
   user         User?       @relation(fields: [userId], references: [id])
   userId       Int?
+  logs         StepLog[]
 
+  @@index([workflowRunId])
+  @@index([stepId])
+  @@index([status, createdAt])
   @@map("step_runs")
+}
+
+// High-volume execution log storage using append-only log pattern
+// This table stores detailed execution events for audit and debugging
+model StepLog {
+  id           Int       @id @default(autoincrement())
+  stepRunId    Int
+  level        LogLevel  @default(INFO)
+  message      String    @db.Text
+  metadata     Json?     // Additional context (request/response data, timing info, etc.)
+  createdAt    DateTime  @default(now())
+
+  stepRun      StepRun   @relation(fields: [stepRunId], references: [id], onDelete: Cascade)
+
+  // Indexes for common query patterns
+  @@index([stepRunId, createdAt])  // Get logs for a step run in order
+  @@index([level, createdAt])      // Filter by log level over time
+  @@index([createdAt])             // Time-series queries for retention policies
+
+  @@map("step_logs")
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
 }
 
 enum StepType {
