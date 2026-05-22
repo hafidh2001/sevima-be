@@ -11,6 +11,7 @@ import { WorkflowsModule } from './modules/workflows/workflows.module';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { SseModule } from './modules/sse/sse.module';
 import { LogsModule } from './modules/workflows/logs/logs.module';
+import { AiModule } from './modules/ai/ai.module';
 import { DatabaseModule } from './database/database.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TenantIsolationGuard } from './common/guards/tenant-isolation.guard';
@@ -39,6 +40,7 @@ import { StepLogService } from './modules/workflows/logs/step-log.service';
     SchedulerModule,
     SseModule,
     LogsModule,
+    AiModule,
   ],
   providers: [
     {
