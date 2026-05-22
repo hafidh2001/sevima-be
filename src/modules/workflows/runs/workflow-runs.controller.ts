@@ -13,6 +13,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { WorkflowRunsService } from './workflow-runs.service';
 import { CreateWorkflowRunDto, QueryWorkflowRunDto } from './dto/create-workflow-run.dto';
+import { WebhookTriggerDto } from './dto/webhook-trigger.dto';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { Public } from '../../../common/decorators/public.decorator';
@@ -127,8 +128,8 @@ export class WebhooksController {
   triggerWebhook(
     @Param('token') token: string,
     @Headers('x-idempotency-key') idempotencyKey: string | undefined,
-    @Body() body: { variables?: Record<string, any> },
+    @Body() dto: WebhookTriggerDto,
   ) {
-    return this.workflowRunsService.triggerWebhook(token, body, idempotencyKey);
+    return this.workflowRunsService.triggerWebhook(token, dto, idempotencyKey);
   }
 }

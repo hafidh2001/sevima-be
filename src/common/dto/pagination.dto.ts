@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsInt, IsOptional, Min, Max, IsIn } from 'class-validator';
 
 export class PaginationMeta {
   @ApiProperty({ example: 100 })
@@ -29,11 +30,20 @@ export class PaginatedResponse<T> {
 
 export class QueryPaginationDto {
   @ApiPropertyOptional({ example: 1, default: 1, description: 'Page number (1-indexed)' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
   page?: number = 1;
 
   @ApiPropertyOptional({ example: 10, default: 10, description: 'Items per page (max 100)' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
   limit?: number = 10;
 
   @ApiPropertyOptional({ example: 'desc', enum: ['asc', 'desc'], description: 'Sort order' })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
   sortOrder?: 'asc' | 'desc' = 'desc';
 }

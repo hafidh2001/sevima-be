@@ -3,6 +3,7 @@ import { PrismaService } from '../../../database/prisma.service';
 import { DAGExecutor } from '../dag/dag-executor';
 import { DAGValidator } from '../dag/dag-validator';
 import { CreateWorkflowRunDto, QueryWorkflowRunDto } from './dto/create-workflow-run.dto';
+import { WebhookTriggerDto } from './dto/webhook-trigger.dto';
 import { RunStatus, StepStatus } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
@@ -89,7 +90,7 @@ export class WorkflowRunsService {
 
   async triggerWebhook(
     token: string,
-    dto: { variables?: Record<string, any> },
+    dto: WebhookTriggerDto,
     idempotencyKey?: string,
   ) {
     // Find workflow by webhook token
