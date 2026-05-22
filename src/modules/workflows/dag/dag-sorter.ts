@@ -25,45 +25,42 @@ export class DAGSorter {
       inDegree.set(edge.to, (inDegree.get(edge.to) || 0) + 1);
     }
 
-    // Find all nodes with no incoming edges
-    const queue: string[] = [];
-    for (const [nodeId, degree] of inDegree) {
-      if (degree === 0) {
-        queue.push(nodeId);
-      }
-    }
-
-    // Sort alphabetically for consistent ordering of nodes with same in-degree
-    queue.sort();
-
     const sorted: string[] = [];
     const parallelGroups: string[][] = [];
-    let currentGroup: string[] = [];
     let depth = 0;
 
-    while (queue.length > 0) {
-      const nodeId = queue.shift()!;
-      sorted.push(nodeId);
-      currentGroup.push(nodeId);
-
-      const neighbors = adjacencyList.get(nodeId) || [];
-      // Sort neighbors for consistent ordering
-      neighbors.sort();
-
-      for (const neighbor of neighbors) {
-        const newDegree = (inDegree.get(neighbor) || 0) - 1;
-        inDegree.set(neighbor, newDegree);
-
-        if (newDegree === 0) {
-          queue.push(neighbor);
+    // Process in stages: each stage contains all nodes that can run in parallel
+    while (true) {
+      // Find all nodes with no remaining dependencies (in-degree 0)
+      const currentStage: string[] = [];
+      for (const [nodeId, degree] of inDegree) {
+        if (degree === 0) {
+          currentStage.push(nodeId);
         }
       }
 
-      // When queue is empty for this level, we've completed a stage
-      if (queue.length === 0 && currentGroup.length > 0) {
-        parallelGroups.push([...currentGroup]);
-        currentGroup = [];
-        depth++;
+      // Sort for consistent ordering
+      currentStage.sort();
+
+      // If no nodes are ready and we haven't processed all, there's a cycle
+      if (currentStage.length === 0) {
+        break;
+      }
+
+      // Add this stage to parallel groups
+      parallelGroups.push([...currentStage]);
+      depth++;
+
+      // Remove these nodes from the graph and update in-degrees
+      for (const nodeId of currentStage) {
+        sorted.push(nodeId);
+        inDegree.set(nodeId, -1); // Mark as processed
+
+        const neighbors = adjacencyList.get(nodeId) || [];
+        for (const neighbor of neighbors) {
+          const newDegree = (inDegree.get(neighbor) || 0) - 1;
+          inDegree.set(neighbor, newDegree);
+        }
       }
     }
 
@@ -74,7 +71,7 @@ export class DAGSorter {
 
     return {
       sorted,
-      hasParallel: parallelGroups.length > 1,
+      hasParallel: parallelGroups.length > 1 && parallelGroups.some(g => g.length > 1),
       parallelGroups,
       depth,
     };
