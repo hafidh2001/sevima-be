@@ -5,7 +5,7 @@
   "main": "dist/main.js",
   "scripts": {
     "prebuild": "rimraf dist",
-    "build": "tsc",
+    "build": "rm -f *.tsbuildinfo && tsc",
     "start": "node dist/main.js",
     "start:dev": "ts-node -r tsconfig-paths/register src/main.ts",
     "start:debug": "nodemon --exec ts-node -r tsconfig-paths/register src/main.ts",
