@@ -49,7 +49,7 @@ async function main() {
   }
 
   // Password hash for "password123" - bcrypt hash
-  const passwordHash = '$2b$10$rqFXqhexH8VJqXvMHZQxMe7yDGz3tBjHgKJqKJ2ZKqD5YcV8vN6oW';
+  const passwordHash = '$2b$10$Lz2kyo8DJ2sKP5To6kuuvOQKtVorzQQPsNN0xveB2NOPGg6xzi/xC';
 
   // Create users for each tenant
   const tenantSlugs = tenants.map((t) => t.slug);
