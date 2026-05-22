@@ -1,7 +1,8 @@
-import { IsString, IsNotEmpty, IsOptional, ValidateNested, IsBoolean, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, ValidateNested, IsEnum, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CreateWorkflowDto } from './create-workflow.dto';
+import { WorkflowStatus } from '@prisma/client';
 
 const MAX_STRING_LENGTH = 500;
 
@@ -27,7 +28,7 @@ export class UpdateWorkflowDto {
 }
 
 export class UpdateWorkflowStatusDto {
-  @ApiProperty({ example: true })
-  @IsBoolean()
-  isActive!: boolean;
+  @ApiProperty({ enum: WorkflowStatus, example: WorkflowStatus.ACTIVE })
+  @IsEnum(WorkflowStatus)
+  status!: WorkflowStatus;
 }

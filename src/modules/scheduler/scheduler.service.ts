@@ -33,7 +33,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     try {
       const workflows = await this.prisma.workflowDefinition.findMany({
         where: {
-          isActive: true,
+          status: 'ACTIVE',
           cronExpression: { not: null },
         },
         select: {

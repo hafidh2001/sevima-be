@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException 
 import { PrismaService } from '../../database/prisma.service';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { UpdateWorkflowDto } from './dto/update-workflow.dto';
-import { QueryWorkflowDto } from './dto/query-workflow.dto';
+import { QueryWorkflowDto, WorkflowStatusFilter } from './dto/query-workflow.dto';
 
 @Injectable()
 export class WorkflowsService {
@@ -42,7 +42,7 @@ export class WorkflowsService {
       limit = 10,
       sortBy = 'createdAt',
       sortOrder = 'desc',
-      isActive,
+      status,
       name,
       from,
       to,
@@ -52,8 +52,9 @@ export class WorkflowsService {
       tenantId,
     };
 
-    if (isActive !== undefined) {
-      where.isActive = isActive;
+    if (status !== undefined) {
+      // WorkflowStatusFilter enum values: ACTIVE, DRAFT, ARCHIVED
+      where.status = status;
     }
 
     if (name) {
@@ -250,12 +251,12 @@ export class WorkflowsService {
     };
   }
 
-  async updateStatus(tenantId: number, id: number, isActive: boolean) {
+  async updateStatus(tenantId: number, id: number, status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED') {
     await this.ensureWorkflowExists(id, tenantId);
 
     return this.prisma.workflowDefinition.update({
       where: { id },
-      data: { isActive },
+      data: { status },
     });
   }
 

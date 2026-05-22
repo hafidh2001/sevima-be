@@ -17,7 +17,7 @@ import { WebhookTriggerDto } from './dto/webhook-trigger.dto';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { Public } from '../../../common/decorators/public.decorator';
-import { Role } from '@prisma/client';
+import { RoleName } from '../../../common/constants/roles';
 
 @ApiTags('workflows')
 @ApiBearerAuth('JWT-auth')
@@ -26,7 +26,7 @@ export class WorkflowRunsController {
   constructor(private readonly workflowRunsService: WorkflowRunsService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.EDITOR)
+  @Roles(RoleName.ADMIN, RoleName.EDITOR)
   @ApiOperation({ summary: 'Trigger a workflow run' })
   @ApiParam({ name: 'workflowId', type: 'number' })
   @ApiResponse({ status: 201, description: 'Workflow triggered successfully' })
@@ -79,7 +79,7 @@ export class WorkflowRunsController {
   }
 
   @Post(':runId/cancel')
-  @Roles(Role.ADMIN, Role.EDITOR)
+  @Roles(RoleName.ADMIN, RoleName.EDITOR)
   @ApiOperation({ summary: 'Cancel a running workflow' })
   @ApiParam({ name: 'workflowId', type: 'number' })
   @ApiParam({ name: 'runId', type: 'number' })
@@ -95,7 +95,7 @@ export class WorkflowRunsController {
   }
 
   @Post(':runId/retry')
-  @Roles(Role.ADMIN, Role.EDITOR)
+  @Roles(RoleName.ADMIN, RoleName.EDITOR)
   @ApiOperation({ summary: 'Retry a failed workflow' })
   @ApiParam({ name: 'workflowId', type: 'number' })
   @ApiParam({ name: 'runId', type: 'number' })

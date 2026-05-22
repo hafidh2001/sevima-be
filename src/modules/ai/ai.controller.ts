@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { WorkflowGeneratorService, GeneratedWorkflow } from './workflow-generator.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { RoleName } from '../../common/constants/roles';
 import { GenerateWorkflowDto, GenerateWorkflowResponseDto } from './dto/generate-workflow.dto';
 
 @ApiTags('ai')
@@ -14,7 +14,7 @@ export class AiController {
 
   @Post('generate-workflow')
   @UseGuards(JwtAuthGuard)
-  @Roles(Role.ADMIN, Role.EDITOR)
+  @Roles(RoleName.ADMIN, RoleName.EDITOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Generate a workflow from natural language description' })
   @ApiResponse({ status: 200, description: 'Generated workflow definition', type: GenerateWorkflowResponseDto })
@@ -31,7 +31,7 @@ export class AiController {
 
   @Post('generate-workflow/stream')
   @UseGuards(JwtAuthGuard)
-  @Roles(Role.ADMIN, Role.EDITOR)
+  @Roles(RoleName.ADMIN, RoleName.EDITOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Generate a workflow from natural language (streaming)' })
   @ApiResponse({ status: 200, description: 'Generated workflow definition' })

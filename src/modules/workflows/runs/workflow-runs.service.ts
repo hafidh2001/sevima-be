@@ -40,7 +40,7 @@ export class WorkflowRunsService {
       throw new NotFoundException(`Workflow with ID ${workflowId} not found`);
     }
 
-    if (!workflow.isActive) {
+    if (workflow.status !== 'ACTIVE') {
       throw new BadRequestException('Workflow is not active');
     }
 
@@ -108,7 +108,7 @@ export class WorkflowRunsService {
       throw new NotFoundException(`Workflow not found`);
     }
 
-    if (!workflow.isActive) {
+    if (workflow.status !== 'ACTIVE') {
       throw new BadRequestException('Workflow is not active');
     }
 

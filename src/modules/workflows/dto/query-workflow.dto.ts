@@ -1,6 +1,12 @@
-import { IsOptional, IsInt, Min, Max, IsBoolean, IsString, IsDateString } from 'class-validator';
+import { IsOptional, IsInt, Min, Max, IsString, IsDateString, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+
+export enum WorkflowStatusFilter {
+  ACTIVE = 'ACTIVE',
+  DRAFT = 'DRAFT',
+  ARCHIVED = 'ARCHIVED',
+}
 
 export class QueryWorkflowDto {
   @ApiPropertyOptional({ example: 1, default: 1 })
@@ -26,11 +32,10 @@ export class QueryWorkflowDto {
   @IsOptional()
   sortOrder?: 'asc' | 'desc' = 'desc';
 
-  @ApiPropertyOptional({ example: true })
+  @ApiPropertyOptional({ example: 'active', enum: WorkflowStatusFilter })
   @IsOptional()
-  @Type(() => Boolean)
-  @IsBoolean()
-  isActive?: boolean;
+  @IsEnum(WorkflowStatusFilter)
+  status?: WorkflowStatusFilter;
 
   @ApiPropertyOptional({ example: 'workflow-name' })
   @IsOptional()

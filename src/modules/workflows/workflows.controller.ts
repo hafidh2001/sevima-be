@@ -21,7 +21,7 @@ import { QueryWorkflowDto } from './dto/query-workflow.dto';
 import { CreateWorkflowRunDto } from './runs/dto/create-workflow-run.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { RoleName } from '../../common/constants/roles';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @ApiTags('workflows')
@@ -35,7 +35,7 @@ export class WorkflowsController {
   ) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.EDITOR)
+  @Roles(RoleName.ADMIN, RoleName.EDITOR)
   @ApiOperation({ summary: 'Create a new workflow' })
   @ApiResponse({ status: 201, description: 'Workflow created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid workflow definition or validation error' })
@@ -71,7 +71,7 @@ export class WorkflowsController {
   }
 
   @Post(':id/trigger')
-  @Roles(Role.ADMIN, Role.EDITOR)
+  @Roles(RoleName.ADMIN, RoleName.EDITOR)
   @ApiOperation({ summary: 'Manually trigger a workflow run' })
   @ApiParam({ name: 'id', type: 'number' })
   @ApiResponse({ status: 201, description: 'Workflow triggered successfully' })
@@ -113,7 +113,7 @@ export class WorkflowsController {
   }
 
   @Put(':id')
-  @Roles(Role.ADMIN, Role.EDITOR)
+  @Roles(RoleName.ADMIN, RoleName.EDITOR)
   @ApiOperation({ summary: 'Update workflow (creates new version)' })
   @ApiParam({ name: 'id', type: 'number' })
   @ApiResponse({ status: 200, description: 'Workflow updated successfully' })
@@ -130,7 +130,7 @@ export class WorkflowsController {
   }
 
   @Post(':id/rollback/:targetVersion')
-  @Roles(Role.ADMIN)
+  @Roles(RoleName.ADMIN)
   @ApiOperation({ summary: 'Rollback workflow to a previous version' })
   @ApiParam({ name: 'id', type: 'number' })
   @ApiParam({ name: 'targetVersion', type: 'number' })
@@ -146,7 +146,7 @@ export class WorkflowsController {
   }
 
   @Patch(':id/status')
-  @Roles(Role.ADMIN)
+  @Roles(RoleName.ADMIN)
   @ApiOperation({ summary: 'Update workflow active status' })
   @ApiParam({ name: 'id', type: 'number' })
   @ApiResponse({ status: 200, description: 'Status updated successfully' })
@@ -157,11 +157,11 @@ export class WorkflowsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateWorkflowStatusDto,
   ) {
-    return this.workflowsService.updateStatus(tenantId, id, dto.isActive);
+    return this.workflowsService.updateStatus(tenantId, id, dto.status);
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(RoleName.ADMIN)
   @ApiOperation({ summary: 'Delete workflow' })
   @ApiParam({ name: 'id', type: 'number' })
   @ApiResponse({ status: 200, description: 'Workflow deleted successfully' })

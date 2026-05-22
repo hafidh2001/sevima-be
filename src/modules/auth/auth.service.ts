@@ -6,11 +6,13 @@ import { PrismaService } from '../../database/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { RoleIds } from '../../common/constants/roles';
 
 export interface JwtPayload {
   sub: number;
   email: string;
-  role: string;
+  roleId: number;
+  roleName: string;
   tenantId: number;
   type: 'access' | 'refresh';
 }
@@ -31,7 +33,7 @@ export class AuthService {
   async login(dto: LoginDto): Promise<TokenPair> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
-      include: { tenant: true },
+      include: { tenant: true, role: true },
     });
 
     if (!user) {
@@ -47,7 +49,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return this.generateTokens(user.id, user.email, user.role, user.tenantId);
+    return this.generateTokens(user.id, user.email, user.roleId, user.role.name, user.tenantId);
   }
 
   async register(dto: RegisterDto): Promise<{ userId: number }> {
@@ -69,12 +71,16 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
+    // Default to VIEWER role if not specified
+    const roleName = dto.role || 'VIEWER';
+    const roleId = RoleIds[roleName as keyof typeof RoleIds];
+
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
         password: hashedPassword,
         name: dto.name,
-        role: dto.role || 'VIEWER',
+        roleId: roleId,
         tenantId: tenant.id,
       },
     });
@@ -92,14 +98,14 @@ export class AuthService {
 
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
-        include: { tenant: true },
+        include: { tenant: true, role: true },
       });
 
       if (!user || !user.isActive) {
         throw new UnauthorizedException('User not found or inactive');
       }
 
-      return this.generateTokens(user.id, user.email, user.role, user.tenantId);
+      return this.generateTokens(user.id, user.email, user.roleId, user.role.name, user.tenantId);
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
@@ -108,7 +114,7 @@ export class AuthService {
   async validateUser(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { tenant: true },
+      include: { tenant: true, role: true },
     });
 
     if (!user || !user.isActive) {
@@ -121,14 +127,16 @@ export class AuthService {
   private generateTokens(
     userId: number,
     email: string,
-    role: string,
+    roleId: number,
+    roleName: string,
     tenantId: number,
   ): TokenPair {
     const accessToken = this.jwtService.sign(
       {
         sub: userId,
         email,
-        role,
+        roleId,
+        roleName,
         tenantId,
         type: 'access',
       } as any,

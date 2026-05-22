@@ -6,7 +6,8 @@ import { ConfigService } from '@nestjs/config';
 export interface JwtPayload {
   sub: number;
   email: string;
-  role: string;
+  roleId: number;
+  roleName: string;
   tenantId: number;
   type: 'access' | 'refresh';
 }
@@ -33,7 +34,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       userId: payload.sub,
       email: payload.email,
-      role: payload.role,
+      roleId: payload.roleId,
+      roleName: payload.roleName,
       tenantId: payload.tenantId,
     };
   }
