@@ -13,6 +13,7 @@ import { SseModule } from './modules/sse/sse.module';
 import { LogsModule } from './modules/workflows/logs/logs.module';
 import { AiModule } from './modules/ai/ai.module';
 import { DatabaseModule } from './database/database.module';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TenantIsolationGuard } from './common/guards/tenant-isolation.guard';
 import { TenantThrottlerGuard } from './common/guards/throttle.guard';
@@ -43,6 +44,10 @@ import { StepLogService } from './modules/workflows/logs/step-log.service';
     AiModule,
   ],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
