@@ -67,7 +67,9 @@ export class WorkflowsService {
         where.createdAt.gte = new Date(from);
       }
       if (to) {
-        where.createdAt.lte = new Date(to);
+        const toDate = new Date(to);
+        toDate.setDate(toDate.getDate() + 1);
+        where.createdAt.lt = toDate;
       }
     }
 
