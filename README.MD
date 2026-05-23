@@ -21,3 +21,10 @@ Built with NestJS, Fastify, Prisma, and TypeScript.
 ### Database
 - **PostgreSQL**: Primary database
 - **Prisma Client**: ORM with type-safe queries
+
+## HOW TO RUN
+npm i 
+npx prisma generate
+npx prisma migrate
+npm run db:seed
+npm run db:seed / npm run build && npm run start
