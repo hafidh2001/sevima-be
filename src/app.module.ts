@@ -12,6 +12,7 @@ import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { SseModule } from './modules/sse/sse.module';
 import { LogsModule } from './modules/workflows/logs/logs.module';
 import { AiModule } from './modules/ai/ai.module';
+import { RunsModule } from './modules/workflows/runs/runs.module';
 import { DatabaseModule } from './database/database.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -42,6 +43,7 @@ import { StepLogService } from './modules/workflows/logs/step-log.service';
     SseModule,
     LogsModule,
     AiModule,
+    RunsModule,
   ],
   providers: [
     {
