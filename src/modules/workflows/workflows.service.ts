@@ -138,7 +138,25 @@ export class WorkflowsService {
       throw new NotFoundException(`Workflow with ID ${id} not found`);
     }
 
-    return workflow;
+    // Transform to include latestVersion with definition
+    const latestVersion = workflow.versions[0] || null;
+    const { versions, runs, ...rest } = workflow;
+
+    return {
+      ...rest,
+      latestVersion: latestVersion
+        ? {
+            id: latestVersion.id,
+            version: latestVersion.version,
+            definition: latestVersion.definition,
+            createdAt: latestVersion.createdAt,
+          }
+        : null,
+      versionCount: versions.length,
+      _count: {
+        runs: runs.length,
+      },
+    };
   }
 
   async findVersions(tenantId: number, id: number) {
