@@ -104,7 +104,7 @@ export class SseService implements OnModuleDestroy {
 
     const message: SseEvent = {
       data: JSON.stringify(event),
-      type: 'step-update',
+      type: 'step_update',
     };
 
     clients.forEach((client) => {
@@ -129,7 +129,7 @@ export class SseService implements OnModuleDestroy {
 
     const message: SseEvent = {
       data: JSON.stringify({ runId, status, timestamp: new Date() }),
-      type: 'run-status',
+      type: 'run_status',
     };
 
     clients.forEach((client) => {
@@ -160,5 +160,44 @@ export class SseService implements OnModuleDestroy {
    */
   getStepEventsForRun(runId: number): Observable<StepEvent> {
     return this.stepEvents$.pipe(filter((event) => event.runId === runId));
+  }
+
+  /**
+   * Send initial step states to a specific subscriber (for catching up on missed events)
+   */
+  sendInitialStepStates(runId: number, stepStates: Array<{ stepId: string; status: StepEvent['status']; output?: any; error?: string }>): void {
+    const clients = this.connections.get(runId);
+    if (!clients || clients.length === 0) {
+      return;
+    }
+
+    // Send each step as a step_update event
+    stepStates.forEach((step) => {
+      const event: StepEvent = {
+        runId,
+        stepId: step.stepId,
+        status: step.status,
+        timestamp: new Date(),
+        output: step.output,
+        error: step.error,
+      };
+
+      const message: SseEvent = {
+        data: JSON.stringify(event),
+        type: 'step_update',
+      };
+
+      // Send to the most recently added client (the one that just connected)
+      const client = clients[clients.length - 1];
+      if (client) {
+        try {
+          client.observer.next(message);
+        } catch (error) {
+          this.logger.error(`Error sending initial state to client: ${error}`);
+        }
+      }
+    });
+
+    this.logger.log(`Sent initial state for run ${runId}: ${stepStates.length} steps`);
   }
 }

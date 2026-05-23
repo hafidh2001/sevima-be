@@ -40,7 +40,8 @@ export class WorkflowRunsListener {
   async handleWorkflowRun(event: WorkflowRunEvent) {
     const { runId, definition, variables, userId, tenantId } = event;
 
-    this.logger.log(`Starting workflow execution for run ${runId}`);
+    this.logger.log(`[DEBUG] handleWorkflowRun called for run ${runId}`);
+    this.logger.log(`[DEBUG] Event data: ${JSON.stringify({ runId, workflowId: event.workflowId, hasDefinition: !!definition, definitionNodes: definition?.nodes?.length })}`);
 
     try {
       // Update status to RUNNING
@@ -91,11 +92,26 @@ export class WorkflowRunsListener {
 
       const allSuccess = stepRuns.every((step) => step.status === StepStatus.SUCCESS);
       const anyFailed = stepRuns.some((step) => step.status === StepStatus.FAILED);
+      const anyPending = stepRuns.some((step) => step.status === StepStatus.PENDING);
+
+      // If workflow stopped early due to failed step, mark remaining PENDING steps as SKIPPED
+      if (anyFailed && anyPending) {
+        await this.prisma.stepRun.updateMany({
+          where: {
+            workflowRunId: runId,
+            status: StepStatus.PENDING,
+          },
+          data: {
+            status: StepStatus.SKIPPED,
+            completedAt: new Date(),
+          },
+        });
+      }
 
       await this.prisma.workflowRun.update({
         where: { id: runId },
         data: {
-          status: allSuccess ? RunStatus.SUCCESS : anyFailed ? RunStatus.FAILED : RunStatus.RUNNING,
+          status: allSuccess ? RunStatus.SUCCESS : RunStatus.FAILED,
           completedAt: new Date(),
         },
       });

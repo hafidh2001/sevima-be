@@ -26,15 +26,9 @@ async function bootstrap() {
   const port = configService.get<number>('PORT', 8011);
 
   await app.register(fastifyHelmet, {
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'https:'],
-        scriptSrc: ["'self'"],
-      },
-    },
+    contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: false, // Disable CORP for SSE compatibility
   });
 
   app.enableCors({

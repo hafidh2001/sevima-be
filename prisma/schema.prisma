@@ -168,6 +168,8 @@ enum LogLevel {
 }
 
 enum StepType {
+  START
+  END
   HTTP_CALL
   SCRIPT
   DELAY

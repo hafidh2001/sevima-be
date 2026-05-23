@@ -6,6 +6,7 @@ export interface DAGNode {
   name: string;
   config?: Record<string, any>;
   retryConfig?: RetryConfig;
+  continueOnError?: boolean; // If true, workflow continues even when this step fails
 }
 
 export interface DAGEdge {

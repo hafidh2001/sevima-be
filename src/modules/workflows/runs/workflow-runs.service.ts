@@ -69,6 +69,7 @@ export class WorkflowRunsService {
     });
 
     // Emit event for async execution
+    this.logger.log(`[DEBUG] Emitting workflow.run event for run ${run.id}`);
     this.eventEmitter.emit('workflow.run', {
       runId: run.id,
       workflowId: workflow.id,
@@ -77,13 +78,17 @@ export class WorkflowRunsService {
       userId,
       tenantId,
     });
+    this.logger.log(`[DEBUG] Event emitted for run ${run.id}`);
 
     // Return run info immediately
     return {
-      runId: run.id,
-      workflowId: workflow.id,
-      version: versionToRun.version,
+      id: run.id,
+      workflowDefinitionId: run.workflowDefinitionId,
+      workflowVersionId: run.workflowVersionId,
       status: run.status,
+      startedAt: run.startedAt,
+      completedAt: run.completedAt,
+      createdAt: run.createdAt,
       message: 'Workflow triggered successfully',
     };
   }
@@ -304,8 +309,13 @@ export class WorkflowRunsService {
     });
 
     return {
-      runId: newRun.id,
+      id: newRun.id,
+      workflowDefinitionId: newRun.workflowDefinitionId,
+      workflowVersionId: newRun.workflowVersionId,
       status: newRun.status,
+      startedAt: newRun.startedAt,
+      completedAt: newRun.completedAt,
+      createdAt: newRun.createdAt,
       message: 'Workflow retry triggered successfully',
     };
   }

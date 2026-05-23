@@ -73,7 +73,13 @@ export class DAGExecutor {
       } else {
         // Execute nodes sequentially
         for (const node of stage.nodes) {
-          await this.executeNode(workflowRunId, node, context);
+          const result = await this.executeNode(workflowRunId, node, context);
+
+          // Check if step failed and workflow should stop
+          if (result.status === 'FAILED' && !node.continueOnError) {
+            this.logger.warn(`Workflow ${workflowRunId} stopped due to failed step: ${node.id}`);
+            return context.results;
+          }
         }
       }
     }
@@ -315,13 +321,20 @@ export class DAGExecutor {
     }
 
     try {
+      // Build a context object with variables AND previous step results
+      const stepResults: Record<string, any> = {};
+      context.results.forEach((result, nodeId) => {
+        stepResults[nodeId] = result.output;
+      });
+
       // Simple condition evaluation (in production, use a proper expression evaluator)
       const fn = new Function(
         'variables',
-        `const { ...vars } = variables; return ${condition};`,
+        'results',
+        `const { ...vars } = variables; const { ...stepResults } = results; return ${condition};`,
       );
 
-      const result = fn(context.variables);
+      const result = fn(context.variables, stepResults);
       return { condition, result, shouldContinue: !!result };
     } catch (error) {
       throw new Error(`Conditional evaluation failed: ${error instanceof Error ? error.message : String(error)}`);
