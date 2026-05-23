@@ -1,7 +1,7 @@
 import { IsString, IsNotEmpty, IsOptional, ValidateNested, IsEnum, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { CreateWorkflowDto } from './create-workflow.dto';
+import { CreateWorkflowDto, WorkflowDefinitionDto } from './create-workflow.dto';
 import { WorkflowStatus } from '@prisma/client';
 
 const MAX_STRING_LENGTH = 500;
@@ -20,11 +20,11 @@ export class UpdateWorkflowDto {
   @MaxLength(MAX_STRING_LENGTH, { message: `Description must be at most ${MAX_STRING_LENGTH} characters` })
   description?: string;
 
-  @ApiPropertyOptional({ type: CreateWorkflowDto })
+  @ApiPropertyOptional({ type: WorkflowDefinitionDto })
   @IsOptional()
   @ValidateNested()
-  @Type(() => CreateWorkflowDto)
-  definition?: CreateWorkflowDto['definition'];
+  @Type(() => WorkflowDefinitionDto)
+  definition?: WorkflowDefinitionDto;
 }
 
 export class UpdateWorkflowStatusDto {

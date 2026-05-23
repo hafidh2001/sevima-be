@@ -40,23 +40,44 @@ async function bootstrap() {
   app.enableCors({
     origin: configService.get<string>('CORS_ORIGIN', '*'),
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
   });
 
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false,
       transform: true,
       transformOptions: {
         enableImplicitConversion: true,
       },
       exceptionFactory: (errors) => {
         const messages = errors.map((error) => {
-          const constraints = error.constraints
-            ? Object.values(error.constraints).join(', ')
-            : 'Validation failed';
-          return `${error.property}: ${constraints}`;
-        });
+          if (error.constraints) {
+            return `${error.property}: ${Object.values(error.constraints).join(', ')}`;
+          }
+          // For nested validation, show children errors
+          if (error.children && error.children.length > 0) {
+            const childMessages = error.children.map((child) => {
+              if (child.constraints) {
+                return `${error.property}.${child.property}: ${Object.values(child.constraints).join(', ')}`;
+              }
+              // Deep nesting for array items
+              if (child.children && child.children.length > 0) {
+                return child.children.map((gc) => {
+                  if (gc.constraints) {
+                    return `${error.property}.${child.property}[${gc.property}]: ${Object.values(gc.constraints).join(', ')}`;
+                  }
+                  return `${error.property}.${child.property}[${gc.property}]: Unknown error`;
+                }).join('; ');
+              }
+              return `${error.property}.${child.property}: Unknown error`;
+            }).join('; ');
+            return childMessages;
+          }
+          return `${error.property}: Validation failed`;
+        }).flat();
         return new BadRequestException({
           message: messages,
           error: 'Validation Error',

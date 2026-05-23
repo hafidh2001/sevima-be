@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, ValidateNested, IsArray, MaxLength, Matches } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, ValidateNested, IsArray, MaxLength, ArrayMaxSize, Matches } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -51,14 +51,14 @@ export class WorkflowDefinitionDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => WorkflowNodeDto)
-  @MaxLength(MAX_NODES, { message: `Workflow cannot have more than ${MAX_NODES} nodes` })
+  @ArrayMaxSize(MAX_NODES, { message: `Workflow cannot have more than ${MAX_NODES} nodes` })
   nodes!: WorkflowNodeDto[];
 
   @ApiProperty({ type: [WorkflowEdgeDto], description: `Maximum ${MAX_EDGES} edges allowed` })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => WorkflowEdgeDto)
-  @MaxLength(MAX_EDGES, { message: `Workflow cannot have more than ${MAX_EDGES} edges` })
+  @ArrayMaxSize(MAX_EDGES, { message: `Workflow cannot have more than ${MAX_EDGES} edges` })
   edges!: WorkflowEdgeDto[];
 }
 
